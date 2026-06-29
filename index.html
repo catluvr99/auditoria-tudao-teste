@@ -43,7 +43,7 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 // TRAVA 1: BLOQUEIO DE COMPUTADOR/DESKTOP
 // ==========================================
 if (!/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    document.body.innerHTML = "<div style='display:flex; height:100vh; align-items:center; justify-content:center; background:#f4f3ef;'><h2 style='text-align:center; color:#D93025; padding:20px; background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);'>⚠️ Acesso Negado.<br><br>Para evitar fraudes, as auditorias só podem ser realizadas através de um celular.</h2></div>";
+    document.body.innerHTML = "<div style='display:flex; height:100vh; align-items:center; justify-content:center; background:#f4f3ef;'><h2 style='text-align:center; color:#D93025; padding:20px; background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);'>⚠️ Acesso Negado.<br><br>As fotos devem ser enviadas exclusivamente por meio de um celular, durante a visita à loja.</h2></div>";
     throw new Error("Acesso via Desktop bloqueado.");
 }
 </script>
