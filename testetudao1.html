@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Auditoria Tudão — Ponto Extra</title>
+<style>
+/* MESMO CSS DO SEU PROJETO ANTERIOR */
+:root{ --g:#1D6F42;--gl:#E8F5EE;--gm:#2E9E64; --b:#1A5FA8;--bl:#EAF1FB; --tx:#5F5E5A; --bg:#F4F3EF;--bd:#DDDBD4; --w:#fff;--k:#1E1D1A; --sh:0 2px 10px rgba(0,0,0,.09);--rad:10px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--k);min-height:100vh;font-size:15px}
+header{background:var(--g);color:#fff;padding:.8rem 1.1rem;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+header h1{font-size:15px;font-weight:700} header p{font-size:11px;opacity:.75;margin-top:1px}
+.wrap{max-width:580px;margin:0 auto;padding:1rem .9rem 4rem}
+.card{background:var(--w);border-radius:var(--rad);padding:1.2rem;box-shadow:var(--sh);margin-bottom:.8rem}
+.card-step{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--gm);margin-bottom:.4rem}
+.card h2{font-size:17px;font-weight:700;margin-bottom:.9rem}
+.steps{display:flex;align-items:center;gap:5px;margin-bottom:1rem}
+.dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid var(--bd);color:var(--tx);background:var(--w);flex-shrink:0;transition:.2s}
+.dot.em{border-color:var(--g);background:var(--g);color:#fff}
+.ln{flex:1;height:2px;background:var(--bd);border-radius:2px}
+label.lbl{display:block;font-size:12.5px;font-weight:600;color:var(--tx);margin-bottom:5px;margin-top:1rem}
+select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:7px;font-size:15px;background:var(--w);outline:none;}
+.btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;margin-top:1rem;text-align:center}
+.btn-p{background:var(--g);color:#fff} .btn-p:disabled{background:var(--bd);cursor:not-allowed}
+.oculto{display:none!important}
+.preview-img{width: 100%; border-radius: 8px; margin-top: 10px; display: none;}
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:22px">📸</div>
+  <div><h1>Auditoria Ponto Extra</h1><p>Registro de "Tudão"</p></div>
+</header>
+
+<div class="wrap">
+  <div id="step1" class="card">
+    <div class="card-step">Passo 1 de 2</div><h2>Identificação da Loja</h2>
+    
+    <label class="lbl">Supervisor</label>
+    <select id="sel-sup" onchange="liberarPromotor()"><option value="">— Selecione —</option></select>
+    
+    <label class="lbl">Promotor</label>
+    <select id="sel-prom" disabled onchange="liberarLoja()"><option value="">— Selecione —</option></select>
+    
+    <label class="lbl">Loja</label>
+    <select id="sel-loja" disabled onchange="habilitarContinuar()"><option value="">— Selecione —</option></select>
+    
+    <button class="btn btn-p" id="btn-t1" disabled onclick="irParaPasso2()">Continuar →</button>
+  </div>
+
+  <div id="step2" class="card oculto">
+    <div class="card-step">Passo 2 de 2</div><h2>Captura</h2>
+    
+    <label class="lbl">Tem Ponto Extra "Tudão" na loja?</label>
+    <select id="sel-tudao" onchange="tratarFoto()">
+      <option value="">— Selecione —</option>
+      <option value="Sim">Sim</option>
+      <option value="Não">Não</option>
+    </select>
+
+    <div id="area-foto" class="oculto">
+      <label class="lbl">Tire a foto (Sua localização será gravada)</label>
+      <input type="file" accept="image/*" capture="environment" id="cameraInput">
+      <p id="msg-gps" style="font-size:12px; color:var(--tx); margin-top:5px;"></p>
+      <img id="img-preview" class="preview-img">
+    </div>
+
+    <button class="btn btn-p" id="btn-enviar" onclick="enviarDados()" disabled>Enviar Auditoria</button>
+  </div>
+</div>
+
+<script>
+// COLE AQUI A URL GERADA PELO GOOGLE APPS SCRIPT
+const APPS_SCRIPT_URL = "COLE_AQUI_SUA_URL_DO_APP_DA_WEB";
+
+// DADOS MOCADOS BASEADOS NA SUA PLANILHA CSV (Apenas um exemplo reduzido)
+// Em produção, você pode colar todo o array aqui ou carregar via 'fetch' de um JSON no seu próprio GitHub.
+const baseDados = [
+  { supervisor: "SUPER-SPC1", promotor: "SPC03", loja: "BEM BARATO - 10.250.585/0005-85" },
+  { supervisor: "SUPER-SPC1", promotor: "SPC03", loja: "LOJA 13 - PUBLIC - JD MIRIAM - 50.247.022/0004-71" },
+  { supervisor: "SUPER-SPI2", promotor: "SPI41", loja: "PAULISTÃO LOJA CARAMURU - 71.322.150/0087-30" }
+];
+
+// --- Lógica das Cascatas ---
+window.onload = () => {
+  const sups = [...new Set(baseDados.map(i => i.supervisor))].sort();
+  const selSup = document.getElementById('sel-sup');
+  sups.forEach(s => selSup.innerHTML += `<option value="${s}">${s}</option>`);
+};
+
+function liberarPromotor() {
+  const sup = document.getElementById('sel-sup').value;
+  const selProm = document.getElementById('sel-prom');
+  selProm.innerHTML = '<option value="">— Selecione —</option>';
+  if(sup) {
+    const proms = [...new Set(baseDados.filter(i => i.supervisor === sup).map(i => i.promotor))].sort();
+    proms.forEach(p => selProm.innerHTML += `<option value="${p}">${p}</option>`);
+    selProm.disabled = false;
+  } else { selProm.disabled = true; }
+  document.getElementById('sel-loja').disabled = true;
+}
+
+function liberarLoja() {
+  const prom = document.getElementById('sel-prom').value;
+  const selLoja = document.getElementById('sel-loja');
+  selLoja.innerHTML = '<option value="">— Selecione —</option>';
+  if(prom) {
+    const lojas = baseDados.filter(i => i.promotor === prom).map(i => i.loja).sort();
+    lojas.forEach(l => selLoja.innerHTML += `<option value="${l}">${l}</option>`);
+    selLoja.disabled = false;
+  }
+}
+
+function habilitarContinuar() {
+  document.getElementById('btn-t1').disabled = document.getElementById('sel-loja').value === "";
+}
+
+function irParaPasso2() {
+  document.getElementById('step1').classList.add('oculto');
+  document.getElementById('step2').classList.remove('oculto');
+}
+
+// --- Lógica de GPS, Marca d'água e Foto ---
+let fotoBase64 = "";
+let latFinal = "", lngFinal = "", endFinal = "";
+
+function tratarFoto() {
+  const tudao = document.getElementById('sel-tudao').value;
+  const area = document.getElementById('area-foto');
+  const btn = document.getElementById('btn-enviar');
+  if(tudao === 'Sim') {
+    area.classList.remove('oculto');
+    btn.disabled = true; // só libera quando a foto carregar
+  } else if (tudao === 'Não') {
+    area.classList.add('oculto');
+    btn.disabled = false; // Se não tem tudão, pode enviar direto sem foto
+  }
+}
+
+document.getElementById('cameraInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+
+  document.getElementById('msg-gps').innerText = "Buscando satélite GPS...";
+  
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    latFinal = pos.coords.latitude;
+    lngFinal = pos.coords.longitude;
+    
+    // Busca endereço de graça na API Pública Nominatim
+    document.getElementById('msg-gps').innerText = "Localizando endereço da rua...";
+    try {
+       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latFinal}&lon=${lngFinal}&format=json`);
+       const data = await res.json();
+       endFinal = data.display_name;
+    } catch(err) { endFinal = "Rua não encontrada"; }
+    
+    document.getElementById('msg-gps').innerText = "Aplicando marca d'água...";
+    
+    // Processamento da imagem no Canvas
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Reduz a imagem para não bugar no mobile (max 1000px larg)
+      const scale = Math.min(1000 / img.width, 1);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      
+      canvas.width = w;
+      canvas.height = h + 180; // Espaço preto na base
+      
+      ctx.drawImage(img, 0, 0, w, h);
+      
+      // Faixa Preta
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, h, w, 180);
+      
+      // Texto da Marca D'água
+      ctx.fillStyle = 'white';
+      ctx.font = '24px Arial';
+      const dataHora = new Date().toLocaleString('pt-BR');
+      ctx.fillText(`Data/Hora: ${dataHora}`, 20, h + 40);
+      ctx.fillText(`GPS: ${latFinal.toFixed(5)} , ${lngFinal.toFixed(5)}`, 20, h + 80);
+      
+      // Quebra texto do endereço se for longo
+      ctx.font = '18px Arial';
+      ctx.fillText(`End.: ${endFinal.substring(0, 70)}...`, 20, h + 120);
+
+      fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Exibe preview
+      const preview = document.getElementById('img-preview');
+      preview.src = fotoBase64;
+      preview.style.display = 'block';
+      
+      document.getElementById('msg-gps').innerText = "Pronto! Foto e localização registradas.";
+      document.getElementById('btn-enviar').disabled = false;
+    }
+  }, (err) => {
+    alert("Você precisa permitir a localização para tirar a foto!");
+  }, { enableHighAccuracy: true });
+});
+
+// --- Envio de dados ---
+function enviarDados() {
+  document.getElementById('btn-enviar').innerText = "Enviando... Aguarde";
+  document.getElementById('btn-enviar').disabled = true;
+
+  const payload = {
+    supervisor: document.getElementById('sel-sup').value,
+    promotor: document.getElementById('sel-prom').value,
+    loja: document.getElementById('sel-loja').value,
+    temTudao: document.getElementById('sel-tudao').value,
+    lat: latFinal,
+    lng: lngFinal,
+    endereco: endFinal,
+    image: fotoBase64
+  };
+
+  fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" }, // 'text/plain' evita erro de CORS no fetch
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.status === "success") {
+      alert("Sucesso! Registro e foto salvos.");
+      window.location.reload();
+    } else { alert("Erro ao salvar!"); }
+  })
+  .catch(e => { alert("Erro de conexão."); document.getElementById('btn-enviar').disabled = false; });
+}
+</script>
+</body>
+</html>
