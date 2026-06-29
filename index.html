@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Auditoria Tudão — Ponto Extra</title>
 <style>
-/* MESMO CSS DO SEU PROJETO ANTERIOR */
+/* --- ESTILOS DO SEU PROJETO --- */
 :root{ --g:#1D6F42;--gl:#E8F5EE;--gm:#2E9E64; --b:#1A5FA8;--bl:#EAF1FB; --tx:#5F5E5A; --bg:#F4F3EF;--bd:#DDDBD4; --w:#fff;--k:#1E1D1A; --sh:0 2px 10px rgba(0,0,0,.09);--rad:10px; }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--k);min-height:100vh;font-size:15px}
@@ -15,19 +15,38 @@ header h1{font-size:15px;font-weight:700} header p{font-size:11px;opacity:.75;ma
 .card{background:var(--w);border-radius:var(--rad);padding:1.2rem;box-shadow:var(--sh);margin-bottom:.8rem}
 .card-step{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--gm);margin-bottom:.4rem}
 .card h2{font-size:17px;font-weight:700;margin-bottom:.9rem}
-.steps{display:flex;align-items:center;gap:5px;margin-bottom:1rem}
-.dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid var(--bd);color:var(--tx);background:var(--w);flex-shrink:0;transition:.2s}
-.dot.em{border-color:var(--g);background:var(--g);color:#fff}
-.ln{flex:1;height:2px;background:var(--bd);border-radius:2px}
 label.lbl{display:block;font-size:12.5px;font-weight:600;color:var(--tx);margin-bottom:5px;margin-top:1rem}
 select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:7px;font-size:15px;background:var(--w);outline:none;}
 .btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;margin-top:1rem;text-align:center}
 .btn-p{background:var(--g);color:#fff} .btn-p:disabled{background:var(--bd);cursor:not-allowed}
 .oculto{display:none!important}
-.preview-img{width: 100%; border-radius: 8px; margin-top: 10px; display: none;}
+
+/* --- ESTILOS DA CÂMERA AO VIVO --- */
+.camera-container {
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    margin-top: 10px;
+    position: relative;
+}
+#video-camera { width: 100%; display: block; }
+#img-preview { width: 100%; display: none; border-radius: 8px; margin-top: 10px; }
+.btn-capturar { background: #b3261e; color: white; border-radius: 50px; margin-top: 10px; padding: 15px; font-size: 16px; }
+#status-info { font-size: 12px; color: #b3261e; margin-top: 5px; font-weight: bold; }
 </style>
 </head>
 <body>
+
+<script>
+// ==========================================
+// TRAVA 1: BLOQUEIO DE COMPUTADOR/DESKTOP
+// ==========================================
+if (!/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    document.body.innerHTML = "<div style='display:flex; height:100vh; align-items:center; justify-content:center; background:#f4f3ef;'><h2 style='text-align:center; color:#D93025; padding:20px; background:#fff; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1);'>⚠️ Acesso Negado.<br><br>Para evitar fraudes, as auditorias só podem ser realizadas através de um celular.</h2></div>";
+    throw new Error("Acesso via Desktop bloqueado.");
+}
+</script>
 
 <header>
   <div style="font-size:22px">📸</div>
@@ -51,39 +70,51 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
   </div>
 
   <div id="step2" class="card oculto">
-    <div class="card-step">Passo 2 de 2</div><h2>Captura</h2>
+    <div class="card-step">Passo 2 de 2</div><h2>Captura In-loco</h2>
     
     <label class="lbl">Tem Ponto Extra "Tudão" na loja?</label>
-    <select id="sel-tudao" onchange="tratarFoto()">
+    <select id="sel-tudao" onchange="tratarSelecaoTudao()">
       <option value="">— Selecione —</option>
       <option value="Sim">Sim</option>
       <option value="Não">Não</option>
     </select>
 
     <div id="area-foto" class="oculto">
-      <label class="lbl">Tire a foto (Sua localização será gravada)</label>
-      <input type="file" accept="image/*" capture="environment" id="cameraInput">
-      <p id="msg-gps" style="font-size:12px; color:var(--tx); margin-top:5px;"></p>
-      <img id="img-preview" class="preview-img">
+      <label class="lbl">Câmera ao vivo (Tire a foto do ponto extra)</label>
+      
+      <div class="camera-container" id="camera-box">
+        <video id="video-camera" autoplay playsinline></video>
+      </div>
+      
+      <button class="btn btn-capturar" id="btn-tirar-foto" onclick="capturarFoto()">📷 Capturar Foto Agora</button>
+      
+      <p id="status-info">Aguardando permissão de câmera e GPS...</p>
+      
+      <img id="img-preview" alt="Preview da Foto">
+      <button class="btn btn-p oculto" id="btn-refazer" style="background:#5F5E5A;" onclick="refazerFoto()">🔄 Tirar foto novamente</button>
     </div>
 
-    <button class="btn btn-p" id="btn-enviar" onclick="enviarDados()" disabled>Enviar Auditoria</button>
+    <button class="btn btn-p" id="btn-enviar" onclick="enviarDados()" disabled style="margin-top:20px;">Enviar Auditoria</button>
   </div>
 </div>
 
 <script>
-// COLE AQUI A URL GERADA PELO GOOGLE APPS SCRIPT
+// ==========================================
+// CONFIGURAÇÕES
+// ==========================================
 const APPS_SCRIPT_URL = "COLE_AQUI_SUA_URL_DO_APP_DA_WEB";
 
-// DADOS MOCADOS BASEADOS NA SUA PLANILHA CSV (Apenas um exemplo reduzido)
-// Em produção, você pode colar todo o array aqui ou carregar via 'fetch' de um JSON no seu próprio GitHub.
+// Simulando os dados do seu CSV
 const baseDados = [
   { supervisor: "SUPER-SPC1", promotor: "SPC03", loja: "BEM BARATO - 10.250.585/0005-85" },
   { supervisor: "SUPER-SPC1", promotor: "SPC03", loja: "LOJA 13 - PUBLIC - JD MIRIAM - 50.247.022/0004-71" },
-  { supervisor: "SUPER-SPI2", promotor: "SPI41", loja: "PAULISTÃO LOJA CARAMURU - 71.322.150/0087-30" }
+  { supervisor: "SUPER-SPI2", promotor: "SPI41", loja: "PAULISTÃO LOJA CARAMURU - 71.322.150/0087-30" },
+  { supervisor: "SUPER-PR", promotor: "PR12", loja: "ATACADAO CAMBE - 75.315.333/0258-70" }
 ];
 
-// --- Lógica das Cascatas ---
+// ==========================================
+// LÓGICA DE CASCATA
+// ==========================================
 window.onload = () => {
   const sups = [...new Set(baseDados.map(i => i.supervisor))].sort();
   const selSup = document.getElementById('sel-sup');
@@ -122,94 +153,142 @@ function irParaPasso2() {
   document.getElementById('step2').classList.remove('oculto');
 }
 
-// --- Lógica de GPS, Marca d'água e Foto ---
+// ==========================================
+// LÓGICA DA CÂMERA E GPS
+// ==========================================
+let videoStream = null;
 let fotoBase64 = "";
-let latFinal = "", lngFinal = "", endFinal = "";
+let latFinal = 0, lngFinal = 0, endFinal = "Buscando endereço...";
+let gpsPronto = false;
 
-function tratarFoto() {
+function tratarSelecaoTudao() {
   const tudao = document.getElementById('sel-tudao').value;
   const area = document.getElementById('area-foto');
   const btn = document.getElementById('btn-enviar');
+  
   if(tudao === 'Sim') {
     area.classList.remove('oculto');
-    btn.disabled = true; // só libera quando a foto carregar
+    btn.disabled = true;
+    iniciarCameraEGPS();
   } else if (tudao === 'Não') {
     area.classList.add('oculto');
-    btn.disabled = false; // Se não tem tudão, pode enviar direto sem foto
+    btn.disabled = false;
+    pararCamera(); // Desliga a câmera se ele desistir
+  } else {
+    area.classList.add('oculto');
+    btn.disabled = true;
   }
 }
 
-document.getElementById('cameraInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if(!file) return;
-
-  document.getElementById('msg-gps').innerText = "Buscando satélite GPS...";
-  
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    latFinal = pos.coords.latitude;
-    lngFinal = pos.coords.longitude;
-    
-    // Busca endereço de graça na API Pública Nominatim
-    document.getElementById('msg-gps').innerText = "Localizando endereço da rua...";
-    try {
-       const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latFinal}&lon=${lngFinal}&format=json`);
-       const data = await res.json();
-       endFinal = data.display_name;
-    } catch(err) { endFinal = "Rua não encontrada"; }
-    
-    document.getElementById('msg-gps').innerText = "Aplicando marca d'água...";
-    
-    // Processamento da imagem no Canvas
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // Reduz a imagem para não bugar no mobile (max 1000px larg)
-      const scale = Math.min(1000 / img.width, 1);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      
-      canvas.width = w;
-      canvas.height = h + 180; // Espaço preto na base
-      
-      ctx.drawImage(img, 0, 0, w, h);
-      
-      // Faixa Preta
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, h, w, 180);
-      
-      // Texto da Marca D'água
-      ctx.fillStyle = 'white';
-      ctx.font = '24px Arial';
-      const dataHora = new Date().toLocaleString('pt-BR');
-      ctx.fillText(`Data/Hora: ${dataHora}`, 20, h + 40);
-      ctx.fillText(`GPS: ${latFinal.toFixed(5)} , ${lngFinal.toFixed(5)}`, 20, h + 80);
-      
-      // Quebra texto do endereço se for longo
-      ctx.font = '18px Arial';
-      ctx.fillText(`End.: ${endFinal.substring(0, 70)}...`, 20, h + 120);
-
-      fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
-      
-      // Exibe preview
-      const preview = document.getElementById('img-preview');
-      preview.src = fotoBase64;
-      preview.style.display = 'block';
-      
-      document.getElementById('msg-gps').innerText = "Pronto! Foto e localização registradas.";
-      document.getElementById('btn-enviar').disabled = false;
-    }
-  }, (err) => {
-    alert("Você precisa permitir a localização para tirar a foto!");
-  }, { enableHighAccuracy: true });
-});
-
-// --- Envio de dados ---
-function enviarDados() {
-  document.getElementById('btn-enviar').innerText = "Enviando... Aguarde";
+async function iniciarCameraEGPS() {
+  const statusInfo = document.getElementById('status-info');
+  document.getElementById('camera-box').classList.remove('oculto');
+  document.getElementById('btn-tirar-foto').classList.remove('oculto');
+  document.getElementById('img-preview').style.display = 'none';
+  document.getElementById('btn-refazer').classList.add('oculto');
   document.getElementById('btn-enviar').disabled = true;
+
+  try {
+    // Liga a câmera traseira (environment)
+    statusInfo.innerText = "Acessando câmera traseira...";
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    const videoElement = document.getElementById('video-camera');
+    videoElement.srcObject = videoStream;
+
+    // Busca o GPS enquanto ele aponta a câmera
+    statusInfo.innerText = "Buscando sinal GPS...";
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      latFinal = pos.coords.latitude;
+      lngFinal = pos.coords.longitude;
+      
+      try {
+        statusInfo.innerText = "Convertendo GPS em endereço...";
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latFinal}&lon=${lngFinal}&format=json`);
+        const data = await res.json();
+        endFinal = data.display_name;
+      } catch(e) { endFinal = "Não foi possível resgatar o nome da rua."; }
+      
+      gpsPronto = true;
+      statusInfo.style.color = "var(--g)";
+      statusInfo.innerText = "✓ Câmera e GPS prontos. Pode capturar!";
+    }, (err) => {
+      alert("ATENÇÃO: Você precisa permitir o acesso à localização para a auditoria.");
+      statusInfo.innerText = "❌ Erro de Localização.";
+    }, { enableHighAccuracy: true });
+
+  } catch (err) {
+    alert("Erro ao acessar a câmera. Verifique as permissões do navegador.");
+    statusInfo.innerText = "❌ Câmera bloqueada.";
+  }
+}
+
+function capturarFoto() {
+  if (!gpsPronto) {
+    alert("Aguarde um momento, ainda estamos processando sua localização exata.");
+    return;
+  }
+
+  const video = document.getElementById('video-camera');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  // Pegando a resolução real do vídeo
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  
+  canvas.width = w;
+  canvas.height = h + 180; // Espaço para a faixa preta (Watermark)
+  
+  // 1. Desenha a foto tirada
+  ctx.drawImage(video, 0, 0, w, h);
+  
+  // 2. Desenha a Faixa Preta no fundo
+  ctx.fillStyle = 'black';
+  ctx.fillRect(0, h, w, 180);
+  
+  // 3. Escreve os Dados (Marca D'água)
+  ctx.fillStyle = 'white';
+  ctx.font = '24px Arial';
+  const dataHora = new Date().toLocaleString('pt-BR');
+  ctx.fillText(`Data/Hora: ${dataHora}`, 20, h + 40);
+  ctx.fillText(`GPS: ${latFinal.toFixed(5)} , ${lngFinal.toFixed(5)}`, 20, h + 80);
+  
+  ctx.font = '18px Arial';
+  // Quebra a string do endereço se for muito longa
+  ctx.fillText(`End.: ${endFinal.substring(0, 80)}...`, 20, h + 120);
+
+  // 4. Salva a imagem em Base64 (reduzindo a qualidade levemente para não travar o upload)
+  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+  // 5. Atualiza a tela
+  document.getElementById('img-preview').src = fotoBase64;
+  document.getElementById('img-preview').style.display = 'block';
+  document.getElementById('camera-box').classList.add('oculto');
+  document.getElementById('btn-tirar-foto').classList.add('oculto');
+  document.getElementById('btn-refazer').classList.remove('oculto');
+  document.getElementById('status-info').innerText = "Foto carimbada com sucesso!";
+  document.getElementById('btn-enviar').disabled = false;
+
+  pararCamera(); // Desliga a câmera para poupar bateria
+}
+
+function refazerFoto() {
+  iniciarCameraEGPS();
+}
+
+function pararCamera() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+  }
+}
+
+// ==========================================
+// ENVIO DE DADOS (POST PARA APPS SCRIPT)
+// ==========================================
+function enviarDados() {
+  const btn = document.getElementById('btn-enviar');
+  btn.innerText = "Enviando... Não feche a página!";
+  btn.disabled = true;
 
   const payload = {
     supervisor: document.getElementById('sel-sup').value,
@@ -224,17 +303,25 @@ function enviarDados() {
 
   fetch(APPS_SCRIPT_URL, {
     method: "POST",
-    headers: { "Content-Type": "text/plain" }, // 'text/plain' evita erro de CORS no fetch
+    headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(payload)
   })
   .then(res => res.json())
   .then(data => {
     if(data.status === "success") {
-      alert("Sucesso! Registro e foto salvos.");
+      alert("✅ Auditoria enviada com sucesso!");
       window.location.reload();
-    } else { alert("Erro ao salvar!"); }
+    } else { 
+      alert("Erro ao salvar! Tente novamente."); 
+      btn.innerText = "Enviar Auditoria";
+      btn.disabled = false;
+    }
   })
-  .catch(e => { alert("Erro de conexão."); document.getElementById('btn-enviar').disabled = false; });
+  .catch(e => { 
+    alert("Erro de conexão. Verifique sua internet."); 
+    btn.innerText = "Enviar Auditoria";
+    btn.disabled = false; 
+  });
 }
 </script>
 </body>
