@@ -135,7 +135,7 @@ let fotoBase64 = "";
 async function carregarModeloIA() {
   try {
     // Carrega o model.json que está solto junto com o index.html
-    modelYOLO = await tf.loadGraphModel('model.json');
+    modelYOLO = await tf.loadGraphModel('./model.json');
     document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
     document.getElementById('ia-loading').style.color = "#155724";
     document.getElementById('ia-loading').innerText = "✅ Inteligência Artificial Ativa e Pronta!";
