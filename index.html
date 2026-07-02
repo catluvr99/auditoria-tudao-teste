@@ -98,6 +98,22 @@ let latFinal = "", lngFinal = "", endFinal = "";
 let timestampAtual = "";
 let fotoBase64 = "";
 
+// ==========================================================
+// ⚠️ IMPORTANTE: preencha aqui na MESMA ORDEM do seu classes.txt
+// (o arquivo que você usou no Label Studio / Colab para treinar).
+// A ordem importa muito! É essa ordem que define qual "linha" do
+// resultado do YOLO corresponde a qual classe.
+// Exemplo, se seu classes.txt tinha:
+//   Tudao
+//   Outro_Display_A
+//   Outro_Display_B
+// então CLASSES deve ser exatamente ["Tudao","Outro_Display_A","Outro_Display_B"]
+// ==========================================================
+const CLASSES = ["outro_display", "tudao"]; // ordem confirmada pelo categories.json exportado do treino
+const NOME_CLASSE_TUDAO = "tudao";
+let indiceClasseTudao = CLASSES.indexOf(NOME_CLASSE_TUDAO);
+if (indiceClasseTudao === -1) indiceClasseTudao = 0; // fallback de segurança
+
 async function carregarModeloIA() {
   try {
     const urlAtual = window.location.href;
@@ -219,7 +235,30 @@ function pararCamera() {
 }
 
 // ==========================================
+// PRÉ-PROCESSAMENTO "LETTERBOX" (igual ao que o Ultralytics faz em Python)
+// Evita esticar/distorcer a imagem ao redimensionar para 640x640
+// ==========================================
+function aplicarLetterbox(canvasOrigem, tamanho = 640) {
+  const w = canvasOrigem.width, h = canvasOrigem.height;
+  const escala = Math.min(tamanho / w, tamanho / h);
+  const novaW = Math.round(w * escala), novaH = Math.round(h * escala);
+  const padX = (tamanho - novaW) / 2, padY = (tamanho - novaH) / 2;
+
+  const canvasDestino = document.createElement('canvas');
+  canvasDestino.width = tamanho;
+  canvasDestino.height = tamanho;
+  const ctx = canvasDestino.getContext('2d');
+  ctx.fillStyle = 'rgb(114,114,114)'; // cor de padding padrão do Ultralytics
+  ctx.fillRect(0, 0, tamanho, tamanho);
+  ctx.drawImage(canvasOrigem, 0, 0, w, h, padX, padY, novaW, novaH);
+
+  return { canvas: canvasDestino, escala, padX, padY };
+}
+
+// ==========================================
 // PROCESSAMENTO CORRIGIDO DA MATRIZ DO YOLO
+// Lê a classe correta (não fixa em índice 4) e trata os dois formatos
+// possíveis de saída do tfjs: [1, atributos, caixas] ou [1, caixas, atributos]
 // ==========================================
 async function capturarFoto() {
   const video = document.getElementById('video-camera');
@@ -228,15 +267,14 @@ async function capturarFoto() {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-  
-  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8); // foto ORIGINAL limpa, salva no Drive
   timestampAtual = new Date().toLocaleString("pt-BR");
-  
+
   document.getElementById('camera-box').style.display = 'none';
   document.getElementById('btn-tirar-foto').classList.add('oculto');
-  
+
   const imgPreview = document.getElementById('img-preview');
-  imgPreview.src = fotoBase64;
   imgPreview.style.display = 'block';
   document.getElementById('btn-refazer').classList.remove('oculto');
 
@@ -244,43 +282,90 @@ async function capturarFoto() {
     document.getElementById('status-info').innerText = "🤖 Analisando imagem...";
     document.getElementById('status-info').style.color = "#1E1D1A";
 
-    const analiseConfianca = tf.tidy(() => {
-      let tensor = tf.browser.fromPixels(canvas)
-                     .resizeNearestNeighbor([640, 640])
+    const { canvas: canvasLB, escala, padX, padY } = aplicarLetterbox(canvas, 640);
+
+    const resultado = tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(canvasLB)
                      .toFloat()
                      .div(tf.scalar(255.0))
                      .expandDims(0);
-                     
-      const outputTensor = modelYOLO.predict(tensor);
-      const outShape = outputTensor.shape; 
-      
-      let maiorPontuacaoValida = 0;
 
-      // O formato do tensor de saída do YOLOv8 no TFJS é [1, num_valores, 8400]
-      // Onde num_valores = 4 (coordenadas x,y,w,h) + número de classes.
-      // Se treinaste o modelo apenas com 1 classe ("Tudão"), o formato é [1, 5, 8400]
-      if (outShape.length === 3 && outShape[1] >= 5) {
-          const numCaixas = outShape[2];
-          const indiceClasseTudao = 4; // A quinta linha guarda a probabilidade da classe
-          
-          const dadosScores = outputTensor.slice([0, indiceClasseTudao, 0], [1, 1, numCaixas]).dataSync();
-          maiorPontuacaoValida = Math.max(...dadosScores);
+      let saida = modelYOLO.predict(tensor);
+      if (Array.isArray(saida)) saida = saida[0];
+      else if (saida && !saida.shape) saida = Object.values(saida)[0]; // caso o modelo tenha saídas nomeadas
+
+      const shape = saida.shape; // [1, A, B] em alguma ordem
+      let numAtributos, numCaixas, transposto;
+      if (shape[1] <= shape[2]) { // formato [1, atributos, caixas] (mais comum no export ultralytics)
+        numAtributos = shape[1]; numCaixas = shape[2]; transposto = false;
+      } else { // formato [1, caixas, atributos]
+        numAtributos = shape[2]; numCaixas = shape[1]; transposto = true;
       }
-      return maiorPontuacaoValida;
+
+      const dados = saida.dataSync();
+      let melhorScore = 0, melhorCaixa = null;
+
+      for (let i = 0; i < numCaixas; i++) {
+        const score = !transposto
+          ? dados[(4 + indiceClasseTudao) * numCaixas + i]
+          : dados[i * numAtributos + 4 + indiceClasseTudao];
+
+        if (score > melhorScore) {
+          melhorScore = score;
+          let cx, cy, bw, bh;
+          if (!transposto) {
+            cx = dados[0 * numCaixas + i]; cy = dados[1 * numCaixas + i];
+            bw = dados[2 * numCaixas + i]; bh = dados[3 * numCaixas + i];
+          } else {
+            cx = dados[i * numAtributos + 0]; cy = dados[i * numAtributos + 1];
+            bw = dados[i * numAtributos + 2]; bh = dados[i * numAtributos + 3];
+          }
+          melhorCaixa = { cx, cy, bw, bh };
+        }
+      }
+      return { score: melhorScore, caixa: melhorCaixa };
     });
 
-    // Limiar estrito baseado no teu conf > 0.5 do Python
-    if (analiseConfianca > 0.50 && analiseConfianca <= 1.0) {
-        document.getElementById('sel-tudao').value = "Sim";
-        document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detetado com certeza! (${Math.round(analiseConfianca*100)}%) ✅`;
-        document.getElementById('status-info').style.color = "#155724";
+    // Desenha a "caixinha" na imagem de preview, igual ao yolo_detect.py
+    const canvasPreview = document.createElement('canvas');
+    canvasPreview.width = canvas.width;
+    canvasPreview.height = canvas.height;
+    const ctxPrev = canvasPreview.getContext('2d');
+    ctxPrev.drawImage(canvas, 0, 0);
+
+    if (resultado.score > 0.50 && resultado.caixa) {
+      // Converte a caixa do espaço 640x640-com-padding de volta para a imagem original
+      const { cx, cy, bw, bh } = resultado.caixa;
+      const origX = (cx - padX) / escala;
+      const origY = (cy - padY) / escala;
+      const origW = bw / escala;
+      const origH = bh / escala;
+      const xmin = origX - origW / 2, ymin = origY - origH / 2;
+
+      ctxPrev.strokeStyle = "#00c853";
+      ctxPrev.lineWidth = Math.max(3, canvas.width * 0.006);
+      ctxPrev.strokeRect(xmin, ymin, origW, origH);
+
+      const label = `Tudao: ${Math.round(resultado.score * 100)}%`;
+      ctxPrev.font = `${Math.max(18, canvas.width * 0.03)}px sans-serif`;
+      const larguraTexto = ctxPrev.measureText(label).width;
+      ctxPrev.fillStyle = "#00c853";
+      ctxPrev.fillRect(xmin, Math.max(0, ymin - 30), larguraTexto + 12, 30);
+      ctxPrev.fillStyle = "#000";
+      ctxPrev.fillText(label, xmin + 6, Math.max(20, ymin - 8));
+
+      document.getElementById('sel-tudao').value = "Sim";
+      document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (${Math.round(resultado.score*100)}%) ✅`;
+      document.getElementById('status-info').style.color = "#155724";
     } else {
-        // CORREÇÃO CRUCIAL: Se não passou com confiança real da classe, marca NÃO automaticamente
-        document.getElementById('sel-tudao').value = "Não";
-        document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO detetado nesta imagem.`;
-        document.getElementById('status-info').style.color = "#721c24";
+      document.getElementById('sel-tudao').value = "Não";
+      document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO detectado nesta imagem. (maior score: ${Math.round(resultado.score*100)}%)`;
+      document.getElementById('status-info').style.color = "#721c24";
     }
+
+    imgPreview.src = canvasPreview.toDataURL('image/jpeg', 0.85);
   } else {
+    imgPreview.src = fotoBase64;
     document.getElementById('status-info').innerText = "📸 Foto guardada (IA offline). Preenche manualmente.";
   }
 
