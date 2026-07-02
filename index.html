@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Auditoria Tudão — Ponto Extra</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js"></script>
+<script src="[https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js](https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js)"></script>
 
 <style>
 /* --- ESTILOS DO PROJETO --- */
@@ -53,14 +53,6 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 </head>
 <body>
 
-<script>
-// ==========================================
-// TRAVA DE SEGURANÇA (DESATIVADA TEMPORARIAMENTE PARA VOCÊ PODER TESTAR NO PC SE PRECISAR)
-// ==========================================
-// Se quiser reativar o bloqueio de PC depois, basta tirar as duas barras "//" da linha abaixo:
-// if (!/Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent)) { document.body.innerHTML = "<h2>Acesso apenas por celular</h2>"; throw new Error("Bloqueado"); }
-</script>
-
 <header>
   <div style="font-size:22px">📸</div>
   <div><h1>Auditoria Ponto Extra</h1><p>Registro de "Tudão"</p></div>
@@ -88,7 +80,7 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
     <div class="card-step">Passo 2 de 2</div><h2>Captura In-loco</h2>
     
     <label class="lbl">Tem Ponto Extra "Tudão" na loja?</label>
-    <select id="sel-tudao" onchange="tratarSelecaoTudao()">
+    <select id="sel-tudao" disabled onchange="tratarSelecaoTudao()">
       <option value="">— Selecione —</option>
       <option value="Sim">Sim</option>
       <option value="Não">Não</option>
@@ -117,8 +109,9 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 // ==========================================
 // 1. CONFIGURAÇÕES
 // ==========================================
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec";
+const APPS_SCRIPT_URL = "[https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec](https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec)";
 
+// O Roteiro de Lojas simplificado para exibição
 const ROTEIRO = [{"c":"BEM BARATO - 10.250.585/0005-85","n":"BEM BARATO","j":"10.250.585/0005-85","s":"SUPER-SPC1","p":"SPC03","r":"5M COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"},{"c":"LOJA 13 - PUBLIC - JD MIRIAM - 50.247.022/0004-71","n":"LOJA 13 - PUBLIC - JD MIRIAM","j":"50.247.022/0004-71","s":"SUPER-SPC1","p":"SPC03","r":"PUBLIC COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"}];
 
 let modelYOLO = null;
@@ -127,11 +120,11 @@ let latFinal = "", lngFinal = "", endFinal = "";
 let fotoBase64 = "";
 
 // ==========================================
-// CARREGAR MODELO DA RAIZ DO GITHUB
+// CARREGAR MODELO DA RAIZ DO GITHUB (./)
 // ==========================================
 async function carregarModeloIA() {
   try {
-    // CORREÇÃO AQUI: Adicionado './' para forçar o caminho correto na raiz do GitHub Pages
+    // CORREÇÃO: Uso de './' para garantir rota relativa correta na raiz do GitHub Pages
     modelYOLO = await tf.loadGraphModel('./model.json');
     document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
     document.getElementById('ia-loading').style.color = "#155724";
@@ -140,15 +133,17 @@ async function carregarModeloIA() {
     console.error("Erro detalhado ao carregar o modelo:", error);
     document.getElementById('ia-loading').style.backgroundColor = "#f8d7da";
     document.getElementById('ia-loading').style.color = "#721c24";
-    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar o modelo de IA. Veja o Console (F12).";
+    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar o modelo de IA.";
   }
 }
 
+// Iniciar carregamento assim que a página abrir
 window.addEventListener('DOMContentLoaded', () => {
   carregarModeloIA();
   popularSupervisores();
 });
 
+// Lógica de Preenchimento dos Filtros (Seu roteiro)
 function popularSupervisores() {
   const select = document.getElementById('sel-sup');
   const sups = [...new Set(ROTEIRO.map(item => item.s))];
@@ -207,6 +202,7 @@ function tratarSelecaoTudao() {
   }
 }
 
+// Lógica de Câmera e GPS
 function obterLocalizacao() {
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(position => {
@@ -225,7 +221,7 @@ async function iniciarCamera() {
     streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
     document.getElementById('video-camera').srcObject = streamCamera;
   } catch (err) {
-    alert("Erro ao acessar a câmera. Dê permissão nas configurações do celular.");
+    alert("Erro ao acessar a câmera. Dê permissão.");
   }
 }
 
@@ -235,6 +231,9 @@ function pararCamera() {
   }
 }
 
+// ==========================================
+// CAPTURA DA FOTO + ANÁLISE COM A I.A. (YOLO)
+// ==========================================
 async function capturarFoto() {
   const video = document.getElementById('video-camera');
   const canvas = document.createElement('canvas');
@@ -253,33 +252,42 @@ async function capturarFoto() {
   imgPreview.style.display = 'block';
   document.getElementById('btn-refazer').classList.remove('oculto');
 
+  // Roda a análise do modelo YOLO caso ele esteja carregado
   if (modelYOLO) {
     document.getElementById('status-info').innerText = "🤖 Analisando imagem com Inteligência Artificial...";
-    
-    const analise = tf.tidy(() => {
+    document.getElementById('status-info').style.color = "#1E1D1A"; // Reseta cor neutra
+
+    // Executa o processamento do frame sem travar a memória (tf.tidy)
+    tf.tidy(() => {
+      // Converte o elemento canvas em um Tensor adequado para o modelo
       let tensor = tf.browser.fromPixels(canvas)
-                     .resizeNearestNeighbor([640, 640])
+                     .resizeNearestNeighbor([640, 640]) // Tamanho padrão que o YOLO espera
                      .toFloat()
-                     .div(tf.scalar(255.0))
+                     .div(tf.scalar(255.0)) // Normalização dos pixels entre 0 e 1
                      .expandDims(0);
-      return modelYOLO.predict(tensor);
+      
+      const analiseRaw = modelYOLO.predict(tensor);
+      
+      // --- SUA LÓGICA DE DETECÇÃO REAL ---
+      // CORREÇÃO CRUCIAL: Aqui removermos a simulação fixa de 'let detectouTudao = true;'
+      // O sistema agora só mostrará a detecção se o modelo YOLO processar os números e confirmar
+      
+      // Exemplo simples de lógica real (substitua pelos números finos do YOLO se necessário)
+      // Se analiseRaw retornou caixas de detecção com confiança > 50%
+      // let detectouTudao = processarOutputsDoYOLO(analiseRaw); 
+      
+      // Por enquanto, como não implementamos o processamento fino das caixas no JS,
+      // vamos apenas resetar o status para não dar falsos positivos.
+      document.getElementById('status-info').innerText = "📸 Foto capturada. Preencha os dados e envie.";
+      tf.dispose(analiseRaw);
     });
 
-    // Análise simulada (Substitua pela sua lógica fina de caixas YOLO se necessário)
-    let detectouTudao = true; 
-
-    if (detectouTudao) {
-        document.getElementById('sel-tudao').value = "Sim";
-        document.getElementById('status-info').innerText = "✨ IA: Ponto Extra 'Tudão' detectado automaticamente! ✅";
-        document.getElementById('status-info').style.color = "#155724";
-    } else {
-        document.getElementById('sel-tudao').value = "Não";
-        document.getElementById('status-info').innerText = "🔍 IA: Nenhum ponto extra localizado nesta imagem.";
-        document.getElementById('status-info').style.color = "#721c24";
-    }
-    tf.dispose(analise);
+  } else {
+    // Modelo não estava carregado, avisa o usuário para auditoria manual
+    document.getElementById('status-info').innerText = "📸 Foto capturada (Modelo de IA off-line). Preencha manualmente.";
   }
 
+  // CORREÇÃO: Habilita o botão de enviar de qualquer forma se a foto foi tirada
   document.getElementById('btn-enviar').disabled = false;
   pararCamera();
 }
