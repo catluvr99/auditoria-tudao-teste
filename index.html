@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Auditoria Tudão — Ponto Extra</title>
+<title>Auditoria Tudão —  Ponto Extra</title>
 
-<!-- Carregamento assíncrono do TensorFlow -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js"></script>
 
 <style>
-/* --- ESTILOS DO PROJETO (mantidos) --- */
+/* --- ESTILOS DO PROJETO --- */
 :root{ --g:#1D6F42;--gl:#E8F5EE;--gm:#2E9E64; --b:#1A5FA8;--bl:#EAF1FB; --tx:#5F5E5A; --bg:#F4F3EF;--bd:#DDDBD4; --w:#fff;--k:#1E1D1A; --sh:0 2px 10px rgba(0,0,0,.09);--rad:10px; }
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--k);min-height:100vh;font-size:15px}
@@ -98,80 +97,47 @@ let streamCamera = null;
 let latFinal = "", lngFinal = "", endFinal = "";
 let timestampAtual = "";
 let fotoBase64 = "";
-let modeloCarregado = false;
 
-// Classes do modelo
-const CLASSES = ["outro_display", "tudao"];
+// ==========================================================
+// ⚠️ IMPORTANTE: preencha aqui na MESMA ORDEM do seu classes.txt
+// (o arquivo que você usou no Label Studio / Colab para treinar).
+// A ordem importa muito! É essa ordem que define qual "linha" do
+// resultado do YOLO corresponde a qual classe.
+// Exemplo, se seu classes.txt tinha:
+//   Tudao
+//   Outro_Display_A
+//   Outro_Display_B
+// então CLASSES deve ser exatamente ["Tudao","Outro_Display_A","Outro_Display_B"]
+// ==========================================================
+const CLASSES = ["outro_display", "tudao"]; // ordem confirmada pelo categories.json exportado do treino
 const NOME_CLASSE_TUDAO = "tudao";
 let indiceClasseTudao = CLASSES.indexOf(NOME_CLASSE_TUDAO);
-if (indiceClasseTudao === -1) indiceClasseTudao = 0;
+if (indiceClasseTudao === -1) indiceClasseTudao = 0; // fallback de segurança
 
 async function carregarModeloIA() {
-  const loadingDiv = document.getElementById('ia-loading');
-  
   try {
-    // Verifica se o modelo já está em cache
-    const cacheVersao = localStorage.getItem('model_version');
-    const versaoAtual = '1.0.1'; // Incrementar quando mudar o modelo
-    
-    if (cacheVersao === versaoAtual) {
-      loadingDiv.innerText = "📦 Carregando modelo do cache...";
-    }
-    
     const urlAtual = window.location.href;
     const pastaBase = urlAtual.substring(0, urlAtual.lastIndexOf('/')) + '/';
     const urlAbsolutaModelo = pastaBase + 'model.json';
     
-    // Timeout de 30 segundos para carregamento
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Timeout no carregamento do modelo')), 30000);
-    });
+    modelYOLO = await tf.loadGraphModel(urlAbsolutaModelo);
     
-    const loadPromise = tf.loadGraphModel(urlAbsolutaModelo);
-    modelYOLO = await Promise.race([loadPromise, timeoutPromise]);
-    
-    // Salva versão no cache
-    localStorage.setItem('model_version', versaoAtual);
-    modeloCarregado = true;
-    
-    loadingDiv.style.backgroundColor = "#d4edda";
-    loadingDiv.style.color = "#155724";
-    loadingDiv.innerText = "✅ Inteligência Artificial Ativa e Pronta!";
+    document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
+    document.getElementById('ia-loading').style.color = "#155724";
+    document.getElementById('ia-loading').innerText = "✅ Inteligência Artificial Ativa e Pronta!";
   } catch (error) {
     console.error("Erro ao carregar o modelo:", error);
-    modeloCarregado = false;
-    loadingDiv.style.backgroundColor = "#f8d7da";
-    loadingDiv.style.color = "#721c24";
-    
-    // Fallback: permite usar sem IA
-    loadingDiv.innerText = "⚠️ IA não disponível. Você ainda pode usar o sistema manualmente!";
-    
-    // Mostra opção para continuar sem IA
-    const continuarBtn = document.createElement('button');
-    continuarBtn.className = 'btn btn-p';
-    continuarBtn.innerText = 'Continuar sem IA';
-    continuarBtn.style.marginTop = '10px';
-    continuarBtn.onclick = function() {
-      document.getElementById('step1').classList.add('oculto');
-      document.getElementById('step2').classList.remove('oculto');
-      obterLocalizacao();
-    };
-    loadingDiv.parentNode.insertBefore(continuarBtn, loadingDiv.nextSibling);
+    document.getElementById('ia-loading').style.backgroundColor = "#f8d7da";
+    document.getElementById('ia-loading').style.color = "#721c24";
+    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar IA.";
   }
 }
 
-// Carrega o modelo apenas quando necessário
 window.addEventListener('DOMContentLoaded', () => {
-  // Aguarda o usuário interagir antes de carregar o modelo pesado
-  document.addEventListener('click', function initOnInteraction() {
-    carregarModeloIA();
-    document.removeEventListener('click', initOnInteraction);
-  }, { once: true });
-  
+  carregarModeloIA();
   popularSupervisores();
 });
 
-// Funções de popular (mantidas)
 function popularSupervisores() {
   const select = document.getElementById('sel-sup');
   const sups = [...new Set(ROTEIRO.map(item => item.s))];
@@ -268,7 +234,10 @@ function pararCamera() {
   }
 }
 
-// Funções de processamento (mantidas)
+// ==========================================
+// PRÉ-PROCESSAMENTO "LETTERBOX" (igual ao que o Ultralytics faz em Python)
+// Evita esticar/distorcer a imagem ao redimensionar para 640x640
+// ==========================================
 function aplicarLetterbox(canvasOrigem, tamanho = 640) {
   const w = canvasOrigem.width, h = canvasOrigem.height;
   const escala = Math.min(tamanho / w, tamanho / h);
@@ -279,13 +248,18 @@ function aplicarLetterbox(canvasOrigem, tamanho = 640) {
   canvasDestino.width = tamanho;
   canvasDestino.height = tamanho;
   const ctx = canvasDestino.getContext('2d');
-  ctx.fillStyle = 'rgb(114,114,114)';
+  ctx.fillStyle = 'rgb(114,114,114)'; // cor de padding padrão do Ultralytics
   ctx.fillRect(0, 0, tamanho, tamanho);
   ctx.drawImage(canvasOrigem, 0, 0, w, h, padX, padY, novaW, novaH);
 
   return { canvas: canvasDestino, escala, padX, padY };
 }
 
+// ==========================================
+// PROCESSAMENTO CORRIGIDO DA MATRIZ DO YOLO
+// Lê a classe correta (não fixa em índice 4) e trata os dois formatos
+// possíveis de saída do tfjs: [1, atributos, caixas] ou [1, caixas, atributos]
+// ==========================================
 async function capturarFoto() {
   const video = document.getElementById('video-camera');
   const canvas = document.createElement('canvas');
@@ -294,7 +268,7 @@ async function capturarFoto() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8); // foto ORIGINAL limpa, salva no Drive
   timestampAtual = new Date().toLocaleString("pt-BR");
 
   document.getElementById('camera-box').style.display = 'none';
@@ -304,100 +278,95 @@ async function capturarFoto() {
   imgPreview.style.display = 'block';
   document.getElementById('btn-refazer').classList.remove('oculto');
 
-  // Só usa IA se o modelo estiver carregado
-  if (modelYOLO && modeloCarregado) {
+  if (modelYOLO) {
     document.getElementById('status-info').innerText = "🤖 Analisando imagem...";
     document.getElementById('status-info').style.color = "#1E1D1A";
 
-    try {
-      const { canvas: canvasLB, escala, padX, padY } = aplicarLetterbox(canvas, 640);
+    const { canvas: canvasLB, escala, padX, padY } = aplicarLetterbox(canvas, 640);
 
-      const resultado = tf.tidy(() => {
-        const tensor = tf.browser.fromPixels(canvasLB)
-                         .toFloat()
-                         .div(tf.scalar(255.0))
-                         .expandDims(0);
+    const resultado = tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(canvasLB)
+                     .toFloat()
+                     .div(tf.scalar(255.0))
+                     .expandDims(0);
 
-        let saida = modelYOLO.predict(tensor);
-        if (Array.isArray(saida)) saida = saida[0];
-        else if (saida && !saida.shape) saida = Object.values(saida)[0];
+      let saida = modelYOLO.predict(tensor);
+      if (Array.isArray(saida)) saida = saida[0];
+      else if (saida && !saida.shape) saida = Object.values(saida)[0]; // caso o modelo tenha saídas nomeadas
 
-        const shape = saida.shape;
-        let numAtributos, numCaixas, transposto;
-        if (shape[1] <= shape[2]) {
-          numAtributos = shape[1]; numCaixas = shape[2]; transposto = false;
-        } else {
-          numAtributos = shape[2]; numCaixas = shape[1]; transposto = true;
-        }
-
-        const dados = saida.dataSync();
-        let melhorScore = 0, melhorCaixa = null;
-
-        for (let i = 0; i < numCaixas; i++) {
-          const score = !transposto
-            ? dados[(4 + indiceClasseTudao) * numCaixas + i]
-            : dados[i * numAtributos + 4 + indiceClasseTudao];
-
-          if (score > melhorScore) {
-            melhorScore = score;
-            let cx, cy, bw, bh;
-            if (!transposto) {
-              cx = dados[0 * numCaixas + i]; cy = dados[1 * numCaixas + i];
-              bw = dados[2 * numCaixas + i]; bh = dados[3 * numCaixas + i];
-            } else {
-              cx = dados[i * numAtributos + 0]; cy = dados[i * numAtributos + 1];
-              bw = dados[i * numAtributos + 2]; bh = dados[i * numAtributos + 3];
-            }
-            melhorCaixa = { cx, cy, bw, bh };
-          }
-        }
-        return { score: melhorScore, caixa: melhorCaixa };
-      });
-
-      const canvasPreview = document.createElement('canvas');
-      canvasPreview.width = canvas.width;
-      canvasPreview.height = canvas.height;
-      const ctxPrev = canvasPreview.getContext('2d');
-      ctxPrev.drawImage(canvas, 0, 0);
-
-      if (resultado.score > 0.50 && resultado.caixa) {
-        const { cx, cy, bw, bh } = resultado.caixa;
-        const origX = (cx - padX) / escala;
-        const origY = (cy - padY) / escala;
-        const origW = bw / escala;
-        const origH = bh / escala;
-        const xmin = origX - origW / 2, ymin = origY - origH / 2;
-
-        ctxPrev.strokeStyle = "#00c853";
-        ctxPrev.lineWidth = Math.max(3, canvas.width * 0.006);
-        ctxPrev.strokeRect(xmin, ymin, origW, origH);
-
-        const label = `Tudao: ${Math.round(resultado.score * 100)}%`;
-        ctxPrev.font = `${Math.max(18, canvas.width * 0.03)}px sans-serif`;
-        const larguraTexto = ctxPrev.measureText(label).width;
-        ctxPrev.fillStyle = "#00c853";
-        ctxPrev.fillRect(xmin, Math.max(0, ymin - 30), larguraTexto + 12, 30);
-        ctxPrev.fillStyle = "#000";
-        ctxPrev.fillText(label, xmin + 6, Math.max(20, ymin - 8));
-
-        document.getElementById('sel-tudao').value = "Sim";
-        document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (${Math.round(resultado.score*100)}%) ✅`;
-        document.getElementById('status-info').style.color = "#155724";
-      } else {
-        document.getElementById('sel-tudao').value = "Não";
-        document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO detectado. (${Math.round(resultado.score*100)}%)`;
-        document.getElementById('status-info').style.color = "#721c24";
+      const shape = saida.shape; // [1, A, B] em alguma ordem
+      let numAtributos, numCaixas, transposto;
+      if (shape[1] <= shape[2]) { // formato [1, atributos, caixas] (mais comum no export ultralytics)
+        numAtributos = shape[1]; numCaixas = shape[2]; transposto = false;
+      } else { // formato [1, caixas, atributos]
+        numAtributos = shape[2]; numCaixas = shape[1]; transposto = true;
       }
 
-      imgPreview.src = canvasPreview.toDataURL('image/jpeg', 0.85);
-    } catch (error) {
-      console.error("Erro na análise da IA:", error);
-      imgPreview.src = fotoBase64;
-      document.getElementById('status-info').innerText = "⚠️ Erro na análise da IA. Use manualmente.";
+      const dados = saida.dataSync();
+      let melhorScore = 0, melhorCaixa = null;
+
+      for (let i = 0; i < numCaixas; i++) {
+        const score = !transposto
+          ? dados[(4 + indiceClasseTudao) * numCaixas + i]
+          : dados[i * numAtributos + 4 + indiceClasseTudao];
+
+        if (score > melhorScore) {
+          melhorScore = score;
+          let cx, cy, bw, bh;
+          if (!transposto) {
+            cx = dados[0 * numCaixas + i]; cy = dados[1 * numCaixas + i];
+            bw = dados[2 * numCaixas + i]; bh = dados[3 * numCaixas + i];
+          } else {
+            cx = dados[i * numAtributos + 0]; cy = dados[i * numAtributos + 1];
+            bw = dados[i * numAtributos + 2]; bh = dados[i * numAtributos + 3];
+          }
+          melhorCaixa = { cx, cy, bw, bh };
+        }
+      }
+      return { score: melhorScore, caixa: melhorCaixa };
+    });
+
+    // Desenha a "caixinha" na imagem de preview, igual ao yolo_detect.py
+    const canvasPreview = document.createElement('canvas');
+    canvasPreview.width = canvas.width;
+    canvasPreview.height = canvas.height;
+    const ctxPrev = canvasPreview.getContext('2d');
+    ctxPrev.drawImage(canvas, 0, 0);
+
+    if (resultado.score > 0.50 && resultado.caixa) {
+      // Converte a caixa do espaço 640x640-com-padding de volta para a imagem original
+      const { cx, cy, bw, bh } = resultado.caixa;
+      const origX = (cx - padX) / escala;
+      const origY = (cy - padY) / escala;
+      const origW = bw / escala;
+      const origH = bh / escala;
+      const xmin = origX - origW / 2, ymin = origY - origH / 2;
+
+      ctxPrev.strokeStyle = "#00c853";
+      ctxPrev.lineWidth = Math.max(3, canvas.width * 0.006);
+      ctxPrev.strokeRect(xmin, ymin, origW, origH);
+
+      const label = `Tudao: ${Math.round(resultado.score * 100)}%`;
+      ctxPrev.font = `${Math.max(18, canvas.width * 0.03)}px sans-serif`;
+      const larguraTexto = ctxPrev.measureText(label).width;
+      ctxPrev.fillStyle = "#00c853";
+      ctxPrev.fillRect(xmin, Math.max(0, ymin - 30), larguraTexto + 12, 30);
+      ctxPrev.fillStyle = "#000";
+      ctxPrev.fillText(label, xmin + 6, Math.max(20, ymin - 8));
+
+      document.getElementById('sel-tudao').value = "Sim";
+      document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (${Math.round(resultado.score*100)}%) ✅`;
+      document.getElementById('status-info').style.color = "#155724";
+    } else {
+      document.getElementById('sel-tudao').value = "Não";
+      document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO detectado nesta imagem. (maior score: ${Math.round(resultado.score*100)}%)`;
+      document.getElementById('status-info').style.color = "#721c24";
     }
+
+    imgPreview.src = canvasPreview.toDataURL('image/jpeg', 0.85);
   } else {
     imgPreview.src = fotoBase64;
-    document.getElementById('status-info').innerText = "📸 Foto capturada. Selecione manualmente se tem 'Tudão'.";
+    document.getElementById('status-info').innerText = "📸 Foto guardada (IA offline). Preenche manualmente.";
   }
 
   document.getElementById('btn-enviar').disabled = false;
