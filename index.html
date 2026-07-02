@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Auditoria Tudão —  Ponto Extra</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js"></script>
+
+<style>
+/* --- ESTILOS DO PROJETO --- */
+:root{ --g:#1D6F42;--gl:#E8F5EE;--gm:#2E9E64; --b:#1A5FA8;--bl:#EAF1FB; --tx:#5F5E5A; --bg:#F4F3EF;--bd:#DDDBD4; --w:#fff;--k:#1E1D1A; --sh:0 2px 10px rgba(0,0,0,.09);--rad:10px; }
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--k);min-height:100vh;font-size:15px}
+header{background:var(--g);color:#fff;padding:.8rem 1.1rem;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100}
+header h1{font-size:15px;font-weight:700} header p{font-size:11px;opacity:.75;margin-top:1px}
+.wrap{max-width:580px;margin:0 auto;padding:1rem .9rem 4rem}
+.card{background:var(--w);border-radius:var(--rad);padding:1.2rem;box-shadow:var(--sh);margin-bottom:.8rem}
+.card-step{font-size:11px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--gm);margin-bottom:.4rem}
+.card h2{font-size:17px;font-weight:700;margin-bottom:.9rem}
+label.lbl{display:block;font-size:12.5px;font-weight:600;color:var(--tx);margin-bottom:5px;margin-top:1rem}
+select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius:7px;font-size:15px;background:var(--w);outline:none;}
+.btn{width:100%;padding:13px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;margin-top:1rem;text-align:center}
+.btn-p{background:var(--g);color:#fff} .btn-p:disabled{background:var(--bd);cursor:not-allowed}
+.oculto{display:none!important}
+
+/* --- ESTILOS DA CÂMERA AO VIVO --- */
+.camera-container { width: 100%; border-radius: 8px; overflow: hidden; background: #000; margin-top: 10px; position: relative; }
+#video-camera { width: 100%; display: block; }
+#img-preview { width: 100%; display: none; border-radius: 8px; margin-top: 10px; }
+.btn-capturar { background: #b3261e; color: white; border-radius: 50px; margin-top: 10px; padding: 15px; font-size: 16px; }
+#status-info { font-size: 12px; color: #b3261e; margin-top: 5px; font-weight: bold; }
+
+#ia-loading { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; font-weight: bold; text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="font-size:22px">📸</div>
+  <div><h1>Auditoria Ponto Extra</h1><p>Registro de "Tudão"</p></div>
+</header>
+
+<div class="wrap">
+  <div id="ia-loading">🧠 Carregando Inteligência Artificial... Aguarde.</div>
+
+  <div id="step1" class="card">
+    <div class="card-step">Passo 1 de 2</div><h2>Identificação da Loja</h2>
+    
+    <label class="lbl">Supervisor</label>
+    <select id="sel-sup" onchange="liberarPromotor()"><option value="">— Selecione —</option></select>
+    
+    <label class="lbl">Promotor</label>
+    <select id="sel-prom" disabled onchange="liberarLoja()"><option value="">— Selecione —</option></select>
+    
+    <label class="lbl">Loja</label>
+    <select id="sel-loja" disabled onchange="habilitarContinuar()"><option value="">— Selecione —</option></select>
+    
+    <button class="btn btn-p" id="btn-t1" disabled onclick="irParaPasso2()">Continuar →</button>
+  </div>
+
+  <div id="step2" class="card oculto">
+    <div class="card-step">Passo 2 de 2</div><h2>Captura In-loco</h2>
+    
+    <label class="lbl">Tem Ponto Extra "Tudão" na loja?</label>
+    <select id="sel-tudao" onchange="tratarSelecaoTudao()">
+      <option value="">— Selecione —</option>
+      <option value="Sim">Sim</option>
+      <option value="Não">Não</option>
+    </select>
+
+    <div id="area-foto" class="oculto">
+      <label class="lbl">Câmera ao vivo</label>
+      
+      <div class="camera-container" id="camera-box">
+        <video id="video-camera" autoplay playsinline></video>
+      </div>
+      
+      <button class="btn btn-capturar" id="btn-tirar-foto" onclick="capturarFoto()">📷 Capturar Foto Agora</button>
+      
+      <p id="status-info">Aguardando permissão de câmera e GPS...</p>
+      
+      <img id="img-preview" alt="Preview da Foto">
+      <button class="btn btn-p oculto" id="btn-refazer" style="background:#5F5E5A;" onclick="refazerFoto()">🔄 Tirar foto novamente</button>
+    </div>
+
+    <button class="btn btn-p" id="btn-enviar" onclick="enviarDados()" disabled style="margin-top:20px;">Enviar Auditoria</button>
+  </div>
+</div>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec";
+const ROTEIRO = [{"c":"BEM BARATO - 10.250.585/0005-85","n":"BEM BARATO","j":"10.250.585/0005-85","s":"SUPER-SPC1","p":"SPC03","r":"5M COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"},{"c":"LOJA 13 - PUBLIC - JD MIRIAM - 50.247.022/0004-71","n":"LOJA 13 - PUBLIC - JD MIRIAM","j":"50.247.022/0004-71","s":"SUPER-SPC1","p":"SPC03","r":"PUBLIC COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"}];
+
+let modelYOLO = null;
+let streamCamera = null;
+let latFinal = "", lngFinal = "", endFinal = "";
+let timestampAtual = "";
+let fotoBase64 = "";
+
+// ==========================================================
+// ⚠️ IMPORTANTE: preencha aqui na MESMA ORDEM do seu classes.txt
+// (o arquivo que você usou no Label Studio / Colab para treinar).
+// A ordem importa muito! É essa ordem que define qual "linha" do
+// resultado do YOLO corresponde a qual classe.
+// Exemplo, se seu classes.txt tinha:
+//   Tudao
+//   Outro_Display_A
+//   Outro_Display_B
+// então CLASSES deve ser exatamente ["Tudao","Outro_Display_A","Outro_Display_B"]
+// ==========================================================
+const CLASSES = ["outro_display", "tudao"]; // ordem confirmada pelo categories.json exportado do treino
+const NOME_CLASSE_TUDAO = "tudao";
+let indiceClasseTudao = CLASSES.indexOf(NOME_CLASSE_TUDAO);
+if (indiceClasseTudao === -1) indiceClasseTudao = 0; // fallback de segurança
+
+async function carregarModeloIA() {
+  try {
+    const urlAtual = window.location.href;
+    const pastaBase = urlAtual.substring(0, urlAtual.lastIndexOf('/')) + '/';
+    const urlAbsolutaModelo = pastaBase + 'model.json';
+    
+    modelYOLO = await tf.loadGraphModel(urlAbsolutaModelo);
+    
+    document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
+    document.getElementById('ia-loading').style.color = "#155724";
+    document.getElementById('ia-loading').innerText = "✅ Inteligência Artificial Ativa e Pronta!";
+  } catch (error) {
+    console.error("Erro ao carregar o modelo:", error);
+    document.getElementById('ia-loading').style.backgroundColor = "#f8d7da";
+    document.getElementById('ia-loading').style.color = "#721c24";
+    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar IA.";
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  carregarModeloIA();
+  popularSupervisores();
+});
+
+function popularSupervisores() {
+  const select = document.getElementById('sel-sup');
+  const sups = [...new Set(ROTEIRO.map(item => item.s))];
+  sups.forEach(s => { const op = document.createElement('option'); op.value = s; op.text = s; select.appendChild(op); });
+}
+
+function liberarPromotor() {
+  const supSel = document.getElementById('sel-sup').value;
+  const promSelect = document.getElementById('sel-prom');
+  promSelect.innerHTML = '<option value="">— Selecione —</option>';
+  promSelect.disabled = true;
+  document.getElementById('sel-loja').innerHTML = '<option value="">— Selecione —</option>';
+  document.getElementById('sel-loja').disabled = true;
+  document.getElementById('btn-t1').disabled = true;
+  
+  if(!supSel) return;
+  const filtrados = ROTEIRO.filter(item => item.s === supSel);
+  const promotores = [...new Set(filtrados.map(item => item.p))];
+  promotores.forEach(p => { const op = document.createElement('option'); op.value = p; op.text = p; promSelect.appendChild(op); });
+  promSelect.disabled = false;
+}
+
+function liberarLoja() {
+  const supSel = document.getElementById('sel-sup').value;
+  const promSel = document.getElementById('sel-prom').value;
+  const lojaSelect = document.getElementById('sel-loja');
+  lojaSelect.innerHTML = '<option value="">— Selecione —</option>';
+  lojaSelect.disabled = true;
+  document.getElementById('btn-t1').disabled = true;
+
+  if(!promSel) return;
+  const filtrados = ROTEIRO.filter(item => item.s === supSel && item.p === promSel);
+  filtrados.forEach(item => { const op = document.createElement('option'); op.value = `${item.j}|${item.n}`; op.text = item.c; lojaSelect.appendChild(op); });
+  lojaSelect.disabled = false;
+}
+
+function habilitarContinuar() {
+  document.getElementById('btn-t1').disabled = !document.getElementById('sel-loja').value;
+}
+
+function irParaPasso2() {
+  document.getElementById('step1').classList.add('oculto');
+  document.getElementById('step2').classList.remove('oculto');
+  obterLocalizacao(); 
+}
+
+function tratarSelecaoTudao() {
+  const valor = document.getElementById('sel-tudao').value;
+  const areaFoto = document.getElementById('area-foto');
+  if (valor === "Sim" || valor === "Não") {
+    areaFoto.classList.remove('oculto');
+    iniciarCamera();
+  } else {
+    areaFoto.classList.add('oculto');
+    pararCamera();
+  }
+}
+
+function obterLocalizacao() {
+  document.getElementById('status-info').innerText = "Buscando localização GPS...";
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async position => {
+      latFinal = position.coords.latitude;
+      lngFinal = position.coords.longitude;
+      
+      try {
+        const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latFinal}&lon=${lngFinal}`);
+        const dadosGeo = await resposta.json();
+        endFinal = dadosGeo.display_name;
+        document.getElementById('status-info').innerText = "📍 GPS e Endereço capturados com sucesso!";
+        document.getElementById('status-info').style.color = "#155724";
+      } catch (err) {
+        endFinal = `Lat: ${latFinal}, Lng: ${lngFinal}`;
+        document.getElementById('status-info').innerText = "📍 Coordenadas capturadas (Endereço indisponível)";
+      }
+    }, () => {
+      document.getElementById('status-info').innerText = "⚠️ Ative o GPS/Localização para enviar a auditoria.";
+    });
+  }
+}
+
+async function iniciarCamera() {
+  try {
+    streamCamera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    document.getElementById('video-camera').srcObject = streamCamera;
+  } catch (err) {
+    alert("Erro ao acessar a câmera. Dê permissão.");
+  }
+}
+
+function pararCamera() {
+  if (streamCamera) {
+    streamCamera.getTracks().forEach(track => track.stop());
+  }
+}
+
+// ==========================================
+// PRÉ-PROCESSAMENTO "LETTERBOX" (igual ao que o Ultralytics faz em Python)
+// Evita esticar/distorcer a imagem ao redimensionar para 640x640
+// ==========================================
+function aplicarLetterbox(canvasOrigem, tamanho = 640) {
+  const w = canvasOrigem.width, h = canvasOrigem.height;
+  const escala = Math.min(tamanho / w, tamanho / h);
+  const novaW = Math.round(w * escala), novaH = Math.round(h * escala);
+  const padX = (tamanho - novaW) / 2, padY = (tamanho - novaH) / 2;
+
+  const canvasDestino = document.createElement('canvas');
+  canvasDestino.width = tamanho;
+  canvasDestino.height = tamanho;
+  const ctx = canvasDestino.getContext('2d');
+  ctx.fillStyle = 'rgb(114,114,114)'; // cor de padding padrão do Ultralytics
+  ctx.fillRect(0, 0, tamanho, tamanho);
+  ctx.drawImage(canvasOrigem, 0, 0, w, h, padX, padY, novaW, novaH);
+
+  return { canvas: canvasDestino, escala, padX, padY };
+}
+
+// ==========================================
+// PROCESSAMENTO CORRIGIDO DA MATRIZ DO YOLO
+// Lê a classe correta (não fixa em índice 4) e trata os dois formatos
+// possíveis de saída do tfjs: [1, atributos, caixas] ou [1, caixas, atributos]
+// ==========================================
+async function capturarFoto() {
+  const video = document.getElementById('video-camera');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  fotoBase64 = canvas.toDataURL('image/jpeg', 0.8); // foto ORIGINAL limpa, salva no Drive
+  timestampAtual = new Date().toLocaleString("pt-BR");
+
+  document.getElementById('camera-box').style.display = 'none';
+  document.getElementById('btn-tirar-foto').classList.add('oculto');
+
+  const imgPreview = document.getElementById('img-preview');
+  imgPreview.style.display = 'block';
+  document.getElementById('btn-refazer').classList.remove('oculto');
+
+  if (modelYOLO) {
+    document.getElementById('status-info').innerText = "🤖 Analisando imagem...";
+    document.getElementById('status-info').style.color = "#1E1D1A";
+
+    const { canvas: canvasLB, escala, padX, padY } = aplicarLetterbox(canvas, 640);
+
+    const resultado = tf.tidy(() => {
+      const tensor = tf.browser.fromPixels(canvasLB)
+                     .toFloat()
+                     .div(tf.scalar(255.0))
+                     .expandDims(0);
+
+      let saida = modelYOLO.predict(tensor);
+      if (Array.isArray(saida)) saida = saida[0];
+      else if (saida && !saida.shape) saida = Object.values(saida)[0]; // caso o modelo tenha saídas nomeadas
+
+      const shape = saida.shape; // [1, A, B] em alguma ordem
+      let numAtributos, numCaixas, transposto;
+      if (shape[1] <= shape[2]) { // formato [1, atributos, caixas] (mais comum no export ultralytics)
+        numAtributos = shape[1]; numCaixas = shape[2]; transposto = false;
+      } else { // formato [1, caixas, atributos]
+        numAtributos = shape[2]; numCaixas = shape[1]; transposto = true;
+      }
+
+      const dados = saida.dataSync();
+      let melhorScore = 0, melhorCaixa = null;
+
+      for (let i = 0; i < numCaixas; i++) {
+        const score = !transposto
+          ? dados[(4 + indiceClasseTudao) * numCaixas + i]
+          : dados[i * numAtributos + 4 + indiceClasseTudao];
+
+        if (score > melhorScore) {
+          melhorScore = score;
+          let cx, cy, bw, bh;
+          if (!transposto) {
+            cx = dados[0 * numCaixas + i]; cy = dados[1 * numCaixas + i];
+            bw = dados[2 * numCaixas + i]; bh = dados[3 * numCaixas + i];
+          } else {
+            cx = dados[i * numAtributos + 0]; cy = dados[i * numAtributos + 1];
+            bw = dados[i * numAtributos + 2]; bh = dados[i * numAtributos + 3];
+          }
+          melhorCaixa = { cx, cy, bw, bh };
+        }
+      }
+      return { score: melhorScore, caixa: melhorCaixa };
+    });
+
+    // Desenha a "caixinha" na imagem de preview, igual ao yolo_detect.py
+    const canvasPreview = document.createElement('canvas');
+    canvasPreview.width = canvas.width;
+    canvasPreview.height = canvas.height;
+    const ctxPrev = canvasPreview.getContext('2d');
+    ctxPrev.drawImage(canvas, 0, 0);
+
+    if (resultado.score > 0.50 && resultado.caixa) {
+      // Converte a caixa do espaço 640x640-com-padding de volta para a imagem original
+      const { cx, cy, bw, bh } = resultado.caixa;
+      const origX = (cx - padX) / escala;
+      const origY = (cy - padY) / escala;
+      const origW = bw / escala;
+      const origH = bh / escala;
+      const xmin = origX - origW / 2, ymin = origY - origH / 2;
+
+      ctxPrev.strokeStyle = "#00c853";
+      ctxPrev.lineWidth = Math.max(3, canvas.width * 0.006);
+      ctxPrev.strokeRect(xmin, ymin, origW, origH);
+
+      const label = `Tudao: ${Math.round(resultado.score * 100)}%`;
+      ctxPrev.font = `${Math.max(18, canvas.width * 0.03)}px sans-serif`;
+      const larguraTexto = ctxPrev.measureText(label).width;
+      ctxPrev.fillStyle = "#00c853";
+      ctxPrev.fillRect(xmin, Math.max(0, ymin - 30), larguraTexto + 12, 30);
+      ctxPrev.fillStyle = "#000";
+      ctxPrev.fillText(label, xmin + 6, Math.max(20, ymin - 8));
+
+      document.getElementById('sel-tudao').value = "Sim";
+      document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (${Math.round(resultado.score*100)}%) ✅`;
+      document.getElementById('status-info').style.color = "#155724";
+    } else {
+      document.getElementById('sel-tudao').value = "Não";
+      document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO detectado nesta imagem. (maior score: ${Math.round(resultado.score*100)}%)`;
+      document.getElementById('status-info').style.color = "#721c24";
+    }
+
+    imgPreview.src = canvasPreview.toDataURL('image/jpeg', 0.85);
+  } else {
+    imgPreview.src = fotoBase64;
+    document.getElementById('status-info').innerText = "📸 Foto guardada (IA offline). Preenche manualmente.";
+  }
+
+  document.getElementById('btn-enviar').disabled = false;
+  pararCamera();
+}
+
+function refazerFoto() {
+  fotoBase64 = "";
+  document.getElementById('img-preview').style.display = 'none';
+  document.getElementById('btn-refazer').classList.add('oculto');
+  document.getElementById('camera-box').style.display = 'block';
+  document.getElementById('btn-tirar-foto').classList.remove('oculto');
+  document.getElementById('btn-enviar').disabled = true;
+  document.getElementById('status-info').innerText = "Aguardando nova captura...";
+  document.getElementById('status-info').style.color = "#b3261e";
+  iniciarCamera();
+}
+
+function enviarDados() {
+  const btn = document.getElementById('btn-enviar');
+  btn.innerText = "Enviando... Não feche a página!";
+  btn.disabled = true;
+
+  const lojaCompleta = document.getElementById('sel-loja').value;
+  const cnpjLoja = lojaCompleta.split("|")[0];
+  const nomeLoja = lojaCompleta.split("|")[1];
+
+  const payload = {
+    supervisor: document.getElementById('sel-sup').value,
+    promotor: document.getElementById('sel-prom').value,
+    cnpj: cnpjLoja,
+    loja: nomeLoja,
+    temTudao: document.getElementById('sel-tudao').value,
+    lat: latFinal,
+    lng: lngFinal,
+    endereco: endFinal,
+    timestamp: timestampAtual, 
+    image: fotoBase64
+  };
+
+  fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    if(data.status === "success") {
+      alert("✅ Auditoria enviada com sucesso!");
+      window.location.reload();
+    } else { 
+      alert("Erro ao salvar! Tente novamente...");
+      btn.innerText = "Enviar Auditoria";
+      btn.disabled = false;
+    }
+  })
+  .catch(() => {
+    alert("Erro na conexão!");
+    btn.innerText = "Enviar Auditoria";
+    btn.disabled = false;
+  });
+}
+</script>
+</body>
+</html>
