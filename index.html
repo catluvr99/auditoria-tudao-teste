@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Auditoria Tudão — Ponto Extra</title>
 
-<script src="[https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js](https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js)"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js"></script>
 
 <style>
 /* --- ESTILOS DO PROJETO --- */
@@ -25,30 +25,13 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 .oculto{display:none!important}
 
 /* --- ESTILOS DA CÂMERA AO VIVO --- */
-.camera-container {
-    width: 100%;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #000;
-    margin-top: 10px;
-    position: relative;
-}
+.camera-container { width: 100%; border-radius: 8px; overflow: hidden; background: #000; margin-top: 10px; position: relative; }
 #video-camera { width: 100%; display: block; }
 #img-preview { width: 100%; display: none; border-radius: 8px; margin-top: 10px; }
 .btn-capturar { background: #b3261e; color: white; border-radius: 50px; margin-top: 10px; padding: 15px; font-size: 16px; }
 #status-info { font-size: 12px; color: #b3261e; margin-top: 5px; font-weight: bold; }
 
-/* Indicador de carregamento da Inteligência Artificial */
-#ia-loading {
-    background: #fff3cd;
-    color: #856404;
-    padding: 10px;
-    border-radius: 6px;
-    margin-bottom: 15px;
-    font-size: 13px;
-    font-weight: bold;
-    text-align: center;
-}
+#ia-loading { background: #fff3cd; color: #856404; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; font-weight: bold; text-align: center; }
 </style>
 </head>
 <body>
@@ -59,7 +42,7 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 </header>
 
 <div class="wrap">
-  <div id="ia-loading">🧠 Carregando Inteligência Artificial... Aguarde para iniciar.</div>
+  <div id="ia-loading">🧠 Carregando Inteligência Artificial... Aguarde.</div>
 
   <div id="step1" class="card">
     <div class="card-step">Passo 1 de 2</div><h2>Identificação da Loja</h2>
@@ -80,14 +63,14 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
     <div class="card-step">Passo 2 de 2</div><h2>Captura In-loco</h2>
     
     <label class="lbl">Tem Ponto Extra "Tudão" na loja?</label>
-    <select id="sel-tudao" disabled onchange="tratarSelecaoTudao()">
+    <select id="sel-tudao" onchange="tratarSelecaoTudao()">
       <option value="">— Selecione —</option>
       <option value="Sim">Sim</option>
       <option value="Não">Não</option>
     </select>
 
     <div id="area-foto" class="oculto">
-      <label class="lbl">Câmera ao vivo (Tire a foto do ponto extra)</label>
+      <label class="lbl">Câmera ao vivo</label>
       
       <div class="camera-container" id="camera-box">
         <video id="video-camera" autoplay playsinline></video>
@@ -107,43 +90,43 @@ select, input{width:100%;padding:11px;border:1.5px solid var(--bd);border-radius
 
 <script>
 // ==========================================
-// 1. CONFIGURAÇÕES
+// 1. CONFIGURAÇÕES BASE
 // ==========================================
-const APPS_SCRIPT_URL = "[https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec](https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec)";
-
-// O Roteiro de Lojas simplificado para exibição
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzHMobx0s-SWwmh9b60uVEOb2kEtuN-VHkL7uqAZ2qJBqrFNTX9Qxg6G0Tw-kHYQfP-nQ/exec";
 const ROTEIRO = [{"c":"BEM BARATO - 10.250.585/0005-85","n":"BEM BARATO","j":"10.250.585/0005-85","s":"SUPER-SPC1","p":"SPC03","r":"5M COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"},{"c":"LOJA 13 - PUBLIC - JD MIRIAM - 50.247.022/0004-71","n":"LOJA 13 - PUBLIC - JD MIRIAM","j":"50.247.022/0004-71","s":"SUPER-SPC1","p":"SPC03","r":"PUBLIC COMERCIO ATACADISTA E VAREJISTA DE ALIMENTOS LTDA"}];
 
 let modelYOLO = null;
 let streamCamera = null;
 let latFinal = "", lngFinal = "", endFinal = "";
+let timestampAtual = "";
 let fotoBase64 = "";
 
 // ==========================================
-// CARREGAR MODELO DA RAIZ DO GITHUB (./)
+// CARREGAR MODELO DE IA
 // ==========================================
 async function carregarModeloIA() {
   try {
-    // CORREÇÃO: Uso de './' para garantir rota relativa correta na raiz do GitHub Pages
-    modelYOLO = await tf.loadGraphModel('./model.json');
+    // Tenta carregar usando caminho explícito para evitar erros de servidor
+    modelYOLO = await tf.loadGraphModel('model.json');
     document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
     document.getElementById('ia-loading').style.color = "#155724";
     document.getElementById('ia-loading').innerText = "✅ Inteligência Artificial Ativa e Pronta!";
   } catch (error) {
-    console.error("Erro detalhado ao carregar o modelo:", error);
+    console.error("Erro:", error);
     document.getElementById('ia-loading').style.backgroundColor = "#f8d7da";
     document.getElementById('ia-loading').style.color = "#721c24";
-    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar o modelo de IA.";
+    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar IA (Se enviou os arquivos agora, aguarde 5 min e recarregue a página).";
   }
 }
 
-// Iniciar carregamento assim que a página abrir
 window.addEventListener('DOMContentLoaded', () => {
   carregarModeloIA();
   popularSupervisores();
 });
 
-// Lógica de Preenchimento dos Filtros (Seu roteiro)
+// ==========================================
+// LÓGICA DE PASSOS E MENUS
+// ==========================================
 function popularSupervisores() {
   const select = document.getElementById('sel-sup');
   const sups = [...new Set(ROTEIRO.map(item => item.s))];
@@ -187,7 +170,7 @@ function habilitarContinuar() {
 function irParaPasso2() {
   document.getElementById('step1').classList.add('oculto');
   document.getElementById('step2').classList.remove('oculto');
-  obterLocalizacao();
+  obterLocalizacao(); // Inicia a busca pelo GPS e Endereço!
 }
 
 function tratarSelecaoTudao() {
@@ -202,16 +185,29 @@ function tratarSelecaoTudao() {
   }
 }
 
-// Lógica de Câmera e GPS
+// ==========================================
+// CÂMERA, GPS, ENDEREÇO E TIMESTAMP
+// ==========================================
 function obterLocalizacao() {
+  document.getElementById('status-info').innerText = "Buscando localização GPS...";
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(position => {
+    navigator.geolocation.getCurrentPosition(async position => {
       latFinal = position.coords.latitude;
       lngFinal = position.coords.longitude;
-      endFinal = `Lat: ${latFinal}, Lng: ${lngFinal}`;
-      document.getElementById('status-info').innerText = "📍 GPS Localizado com sucesso.";
+      
+      // Busca o Endereço com base no GPS usando uma API gratuita pública
+      try {
+        const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latFinal}&lon=${lngFinal}`);
+        const dadosGeo = await resposta.json();
+        endFinal = dadosGeo.display_name;
+        document.getElementById('status-info').innerText = "📍 GPS e Endereço capturados com sucesso!";
+        document.getElementById('status-info').style.color = "#155724";
+      } catch (err) {
+        endFinal = `Lat: ${latFinal}, Lng: ${lngFinal}`;
+        document.getElementById('status-info').innerText = "📍 Coordenadas capturadas (Endereço indisponível)";
+      }
     }, () => {
-      document.getElementById('status-info').innerText = "⚠️ Ative o GPS para enviar a auditoria.";
+      document.getElementById('status-info').innerText = "⚠️ Ative o GPS/Localização para enviar a auditoria.";
     });
   }
 }
@@ -232,7 +228,7 @@ function pararCamera() {
 }
 
 // ==========================================
-// CAPTURA DA FOTO + ANÁLISE COM A I.A. (YOLO)
+// CAPTURA E MATEMÁTICA REAL DO YOLO
 // ==========================================
 async function capturarFoto() {
   const video = document.getElementById('video-camera');
@@ -243,6 +239,7 @@ async function capturarFoto() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
   fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
+  timestampAtual = new Date().toLocaleString("pt-BR"); // Salva a data e hora da foto
   
   document.getElementById('camera-box').style.display = 'none';
   document.getElementById('btn-tirar-foto').classList.add('oculto');
@@ -252,42 +249,47 @@ async function capturarFoto() {
   imgPreview.style.display = 'block';
   document.getElementById('btn-refazer').classList.remove('oculto');
 
-  // Roda a análise do modelo YOLO caso ele esteja carregado
+  // Se o modelo estiver rodando, faz a mesma matemática do seu yolo_detect.py
   if (modelYOLO) {
-    document.getElementById('status-info').innerText = "🤖 Analisando imagem com Inteligência Artificial...";
-    document.getElementById('status-info').style.color = "#1E1D1A"; // Reseta cor neutra
+    document.getElementById('status-info').innerText = "🤖 Analisando imagem...";
+    document.getElementById('status-info').style.color = "#1E1D1A";
 
-    // Executa o processamento do frame sem travar a memória (tf.tidy)
-    tf.tidy(() => {
-      // Converte o elemento canvas em um Tensor adequado para o modelo
+    const analise = tf.tidy(() => {
       let tensor = tf.browser.fromPixels(canvas)
-                     .resizeNearestNeighbor([640, 640]) // Tamanho padrão que o YOLO espera
+                     .resizeNearestNeighbor([640, 640])
                      .toFloat()
-                     .div(tf.scalar(255.0)) // Normalização dos pixels entre 0 e 1
+                     .div(tf.scalar(255.0))
                      .expandDims(0);
+                     
+      const outputTensor = modelYOLO.predict(tensor);
       
-      const analiseRaw = modelYOLO.predict(tensor);
+      // O YOLOv8 exportado para TFJS gera um tensor de formato [1, 5, 8400]
+      // A linha 4 do índice central guarda as porcentagens de confiança ('conf')
+      const outShape = outputTensor.shape;
+      let maximaConfianca = 0;
       
-      // --- SUA LÓGICA DE DETECÇÃO REAL ---
-      // CORREÇÃO CRUCIAL: Aqui removermos a simulação fixa de 'let detectouTudao = true;'
-      // O sistema agora só mostrará a detecção se o modelo YOLO processar os números e confirmar
-      
-      // Exemplo simples de lógica real (substitua pelos números finos do YOLO se necessário)
-      // Se analiseRaw retornou caixas de detecção com confiança > 50%
-      // let detectouTudao = processarOutputsDoYOLO(analiseRaw); 
-      
-      // Por enquanto, como não implementamos o processamento fino das caixas no JS,
-      // vamos apenas resetar o status para não dar falsos positivos.
-      document.getElementById('status-info').innerText = "📸 Foto capturada. Preencha os dados e envie.";
-      tf.dispose(analiseRaw);
+      if (outShape.length === 3) {
+          const numCaixas = outShape[2]; // 8400 caixas
+          const vetorConfiancas = outputTensor.slice([0, 4, 0], [1, 1, numCaixas]).dataSync();
+          maximaConfianca = Math.max(...vetorConfiancas); // Pega o maior acerto encontrado na imagem
+      }
+      return maximaConfianca;
     });
 
+    // Sua lógica do yolo_detect.py: conf > 0.5 (Maior que 50% de certeza)
+    if (analise > 0.50) {
+        document.getElementById('sel-tudao').value = "Sim";
+        document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (Certeza: ${Math.round(analise*100)}%) ✅`;
+        document.getElementById('status-info').style.color = "#155724";
+    } else {
+        document.getElementById('sel-tudao').value = "Não";
+        document.getElementById('status-info').innerText = `🔍 IA: Ponto 'Tudão' NÃO encontrado. (Máx Certeza: ${Math.round(analise*100)}%)`;
+        document.getElementById('status-info').style.color = "#721c24";
+    }
   } else {
-    // Modelo não estava carregado, avisa o usuário para auditoria manual
-    document.getElementById('status-info').innerText = "📸 Foto capturada (Modelo de IA off-line). Preencha manualmente.";
+    document.getElementById('status-info').innerText = "📸 Foto tirada (IA offline). Preencha manualmente.";
   }
 
-  // CORREÇÃO: Habilita o botão de enviar de qualquer forma se a foto foi tirada
   document.getElementById('btn-enviar').disabled = false;
   pararCamera();
 }
@@ -304,6 +306,9 @@ function refazerFoto() {
   iniciarCamera();
 }
 
+// ==========================================
+// ENVIO FINAL PARA O SEU GOOGLE SHEETS
+// ==========================================
 function enviarDados() {
   const btn = document.getElementById('btn-enviar');
   btn.innerText = "Enviando... Não feche a página!";
@@ -322,6 +327,7 @@ function enviarDados() {
     lat: latFinal,
     lng: lngFinal,
     endereco: endFinal,
+    timestamp: timestampAtual,  // <<< ADICIONADO AQUI
     image: fotoBase64
   };
 
