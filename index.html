@@ -102,20 +102,27 @@ let timestampAtual = "";
 let fotoBase64 = "";
 
 // ==========================================
-// CARREGAR MODELO DE IA
+// FIX COMPLETO PARA CARREGAMENTO DA IA DO GITHUB
 // ==========================================
 async function carregarModeloIA() {
   try {
-    // Tenta carregar usando caminho explícito para evitar erros de servidor
-    modelYOLO = await tf.loadGraphModel('model.json');
+    // Monta dinamicamente a URL absoluta para incluir obrigatoriamente a pasta do repositório
+    const urlAtual = window.location.href;
+    const pastaBase = urlAtual.substring(0, urlAtual.lastIndexOf('/')) + '/';
+    const urlAbsolutaModelo = pastaBase + 'model.json';
+    
+    console.log("Forçando carregamento do modelo em:", urlAbsolutaModelo);
+    
+    modelYOLO = await tf.loadGraphModel(urlAbsolutaModelo);
+    
     document.getElementById('ia-loading').style.backgroundColor = "#d4edda";
     document.getElementById('ia-loading').style.color = "#155724";
     document.getElementById('ia-loading').innerText = "✅ Inteligência Artificial Ativa e Pronta!";
   } catch (error) {
-    console.error("Erro:", error);
+    console.error("Erro ao carregar o modelo:", error);
     document.getElementById('ia-loading').style.backgroundColor = "#f8d7da";
     document.getElementById('ia-loading').style.color = "#721c24";
-    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar IA (Se enviou os arquivos agora, aguarde 5 min e recarregue a página).";
+    document.getElementById('ia-loading').innerText = "⚠️ Erro ao carregar IA. Verifique se os arquivos .bin estão na mesma pasta do index.html.";
   }
 }
 
@@ -170,7 +177,7 @@ function habilitarContinuar() {
 function irParaPasso2() {
   document.getElementById('step1').classList.add('oculto');
   document.getElementById('step2').classList.remove('oculto');
-  obterLocalizacao(); // Inicia a busca pelo GPS e Endereço!
+  obterLocalizacao(); // Ativa a busca pelo GPS, Endereço e gera os dados originais!
 }
 
 function tratarSelecaoTudao() {
@@ -186,7 +193,7 @@ function tratarSelecaoTudao() {
 }
 
 // ==========================================
-// CÂMERA, GPS, ENDEREÇO E TIMESTAMP
+// CÂMERA, GPS, ENDEREÇO E TIMESTAMP (IGUAL DO ORIENTADOR)
 // ==========================================
 function obterLocalizacao() {
   document.getElementById('status-info').innerText = "Buscando localização GPS...";
@@ -195,7 +202,6 @@ function obterLocalizacao() {
       latFinal = position.coords.latitude;
       lngFinal = position.coords.longitude;
       
-      // Busca o Endereço com base no GPS usando uma API gratuita pública
       try {
         const resposta = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latFinal}&lon=${lngFinal}`);
         const dadosGeo = await resposta.json();
@@ -228,7 +234,7 @@ function pararCamera() {
 }
 
 // ==========================================
-// CAPTURA E MATEMÁTICA REAL DO YOLO
+// CAPTURA E INFERÊNCIA REAL DO YOLO (EQUALIZAÇÃO COM PYTHON COMPILADO)
 // ==========================================
 async function capturarFoto() {
   const video = document.getElementById('video-camera');
@@ -239,7 +245,7 @@ async function capturarFoto() {
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
   fotoBase64 = canvas.toDataURL('image/jpeg', 0.8);
-  timestampAtual = new Date().toLocaleString("pt-BR"); // Salva a data e hora da foto
+  timestampAtual = new Date().toLocaleString("pt-BR"); // Registra o exato momento da foto
   
   document.getElementById('camera-box').style.display = 'none';
   document.getElementById('btn-tirar-foto').classList.add('oculto');
@@ -249,7 +255,7 @@ async function capturarFoto() {
   imgPreview.style.display = 'block';
   document.getElementById('btn-refazer').classList.remove('oculto');
 
-  // Se o modelo estiver rodando, faz a mesma matemática do seu yolo_detect.py
+  // Roda a conferência matemática baseada no limiar conf > 0.5 do arquivo do orientador
   if (modelYOLO) {
     document.getElementById('status-info').innerText = "🤖 Analisando imagem...";
     document.getElementById('status-info').style.color = "#1E1D1A";
@@ -262,21 +268,18 @@ async function capturarFoto() {
                      .expandDims(0);
                      
       const outputTensor = modelYOLO.predict(tensor);
-      
-      // O YOLOv8 exportado para TFJS gera um tensor de formato [1, 5, 8400]
-      // A linha 4 do índice central guarda as porcentagens de confiança ('conf')
       const outShape = outputTensor.shape;
       let maximaConfianca = 0;
       
       if (outShape.length === 3) {
-          const numCaixas = outShape[2]; // 8400 caixas
+          const numCaixas = outShape[2]; 
           const vetorConfiancas = outputTensor.slice([0, 4, 0], [1, 1, numCaixas]).dataSync();
-          maximaConfianca = Math.max(...vetorConfiancas); // Pega o maior acerto encontrado na imagem
+          maximaConfianca = Math.max(...vetorConfiancas); 
       }
       return maximaConfianca;
     });
 
-    // Sua lógica do yolo_detect.py: conf > 0.5 (Maior que 50% de certeza)
+    // Filtro de acerto igual ao script yolo_detect.py (conf > 0.5)
     if (analise > 0.50) {
         document.getElementById('sel-tudao').value = "Sim";
         document.getElementById('status-info').innerText = `✨ IA: Ponto 'Tudão' detectado! (Certeza: ${Math.round(analise*100)}%) ✅`;
@@ -307,7 +310,7 @@ function refazerFoto() {
 }
 
 // ==========================================
-// ENVIO FINAL PARA O SEU GOOGLE SHEETS
+// ENVIO COMPLETO PARA O GOOGLE SHEETS
 // ==========================================
 function enviarDados() {
   const btn = document.getElementById('btn-enviar');
@@ -327,7 +330,7 @@ function enviarDados() {
     lat: latFinal,
     lng: lngFinal,
     endereco: endFinal,
-    timestamp: timestampAtual,  // <<< ADICIONADO AQUI
+    timestamp: timestampAtual, 
     image: fotoBase64
   };
 
